@@ -12,59 +12,43 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Extract project ZIP
         run: |
-          ZIP_FILE=$(find . -maxdepth 2 -type f -name "*.zip" | head -n 1)
-
-          if [ -z "$ZIP_FILE" ]; then
-            echo "No ZIP found, assuming project is already extracted"
-            echo "PROJECT_ROOT=." >> $GITHUB_ENV
-            ls -la
-            exit 0
-          fi
-
-          echo "Extracting: $ZIP_FILE"
+          # Your file is CODM-ESP-Aimbot-Mod-Menu... - find it even without .zip extension
+          FILE=$(find . -maxdepth 1 -type f -name "CODM*" | head -n 1)
+          ZIP=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+          TARGET=${ZIP:-$FILE}
+          
+          echo "Using file: $TARGET"
           mkdir -p extracted
-          unzip -o -q "$ZIP_FILE" -d extracted
-          echo "PROJECT_ROOT=extracted" >> $GITHUB_ENV
-          ls -la extracted
+          unzip -o -q "$TARGET" -d extracted
+          ls extracted
 
       - name: Find Android project
         run: |
-          # Search in both root and extracted folder
-          GRADLEW=$(find . -type f -name "gradlew" | head -n 1)
-
+          GRADLEW=$(find extracted -type f -name "gradlew" | head -n 1)
           if [ -z "$GRADLEW" ]; then
-            echo "ERROR: gradlew not found"
-            echo "Files found:"
-            find . -maxdepth 5 -type f | head -n 200
-            exit 1
+            GRADLEW=$(find . -type f -name "gradlew" | head -n 1)
           fi
-
           PROJECT_DIR=$(dirname "$GRADLEW")
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Android project found at: $PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
+          echo "Found at: $PROJECT_DIR"
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # REMOVED the broken Set up Android SDK step - not needed
 
       - name: Build APK
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
-
-      - name: Find APK
-        run: |
-          find "${{ env.PROJECT_DIR }}" -type f -name "*.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
